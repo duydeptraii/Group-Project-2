@@ -1,18 +1,26 @@
 #include "../include/Intersection.hpp"
+using namespace std;
 
-Intersection::Intersection(const std::string& id) : id(id) {}
+Intersection::Intersection(const string& id) : id(id) {}
 
-void Intersection::addWaitingVehicle(const std::string& vehicleId, int priority) {
-    waitingQueue.push({priority, vehicleId});
+void Intersection::addWaitingVehicle(const string& vehicleId, int priority) {
+    VehicleRef ref;
+    ref.priority  = priority;
+    ref.vehicleId = vehicleId;
+    waitingQueue.push(ref);
 }
 
-std::string Intersection::getNextVehicle() {
-    if (waitingQueue.empty()) return "";
+string Intersection::getNextVehicle() {
+    if (waitingQueue.empty()) {
+        return "";
+    }
     VehicleRef top = waitingQueue.top();
     waitingQueue.pop();
     return top.vehicleId;
 }
 
 void Intersection::clearQueue() {
-    while (!waitingQueue.empty()) waitingQueue.pop();
+    while (!waitingQueue.empty()) {
+        waitingQueue.pop();
+    }
 }

@@ -1,11 +1,12 @@
 #include "../include/TrafficLight.hpp"
+using namespace std;
 
-TrafficLight::TrafficLight(const std::string& intersectionId, int green, int yellow, int red)
+TrafficLight::TrafficLight(const string& intersectionId, int green, int yellow, int red)
     : intersectionId(intersectionId), state(LightState::GREEN),
       greenDuration(green), yellowDuration(yellow), redDuration(red), timer(0) {}
 
 void TrafficLight::update() {
-    ++timer;
+    timer++;
     if (state == LightState::GREEN && timer >= greenDuration) {
         state = LightState::YELLOW;
         timer = 0;
@@ -18,15 +19,13 @@ void TrafficLight::update() {
     }
 }
 
-std::string TrafficLight::getStateString() const {
-    switch (state) {
-        case LightState::GREEN:  return "GREEN";
-        case LightState::YELLOW: return "YELLOW";
-        case LightState::RED:    return "RED";
-    }
+string TrafficLight::getStateString() const {
+    if (state == LightState::GREEN)  return "GREEN";
+    if (state == LightState::YELLOW) return "YELLOW";
+    if (state == LightState::RED)    return "RED";
     return "UNKNOWN";
 }
 
-void TrafficLight::printStatus(std::ostream& out) const {
+void TrafficLight::printStatus(ostream& out) const {
     out << "Traffic Light " << intersectionId << ": " << getStateString() << "\n";
 }

@@ -4,33 +4,34 @@
 #include <unordered_map>
 #include <vector>
 #include <string>
+using namespace std;
 
 class CityMap {
 private:
-    std::unordered_map<std::string, RoadSegment> roads;
-    std::unordered_map<std::string, Intersection> intersections;
-    std::unordered_map<std::string, std::vector<std::string>> adjacencyList;
+    unordered_map<string, RoadSegment> roads;
+    unordered_map<string, Intersection> intersections;
+    unordered_map<string, vector<string>> adjacencyList;
 
 public:
     void addRoad(const RoadSegment& road);
-    void addIntersection(const std::string& id);
+    void addIntersection(const string& id);
 
-    RoadSegment* getRoad(const std::string& id);
-    const RoadSegment* getRoad(const std::string& id) const;
-    Intersection* getIntersection(const std::string& id);
+    RoadSegment* getRoad(const string& id);
+    const RoadSegment* getRoad(const string& id) const;
+    Intersection* getIntersection(const string& id);
 
-    std::unordered_map<std::string, RoadSegment>& getAllRoads() { return roads; }
-    const std::unordered_map<std::string, RoadSegment>& getAllRoads() const { return roads; }
-    std::unordered_map<std::string, Intersection>& getAllIntersections() { return intersections; }
-    const std::unordered_map<std::string, Intersection>& getAllIntersections() const { return intersections; }
+    unordered_map<string, RoadSegment>& getAllRoads() { return roads; }
+    const unordered_map<string, RoadSegment>& getAllRoads() const { return roads; }
+    unordered_map<string, Intersection>& getAllIntersections() { return intersections; }
+    const unordered_map<string, Intersection>& getAllIntersections() const { return intersections; }
 
-    const std::vector<std::string>& getOutgoingRoads(const std::string& intersectionId) const;
+    const vector<string>& getOutgoingRoads(const string& intersectionId) const;
 
-    bool roadExists(const std::string& id) const { return roads.count(id) > 0; }
-    bool intersectionExists(const std::string& id) const { return intersections.count(id) > 0; }
+    bool roadExists(const string& id) const { return roads.count(id) > 0; }
+    bool intersectionExists(const string& id) const { return intersections.count(id) > 0; }
 
-    std::vector<std::string> getBlockedRoads() const;
-    std::vector<std::string> getCongestedRoads() const;
-    void incrementVehicleCount(const std::string& roadId);
-    void decrementVehicleCount(const std::string& roadId);
+    vector<string> getBlockedRoads() const;
+    vector<string> getCongestedRoads() const;
+    void incrementVehicleCount(const string& roadId);
+    void decrementVehicleCount(const string& roadId);
 };

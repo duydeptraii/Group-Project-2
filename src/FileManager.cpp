@@ -9,27 +9,28 @@
 #include <iostream>
 #include <stdexcept>
 #include <memory>
+using namespace std;
 
-void FileManager::loadRoads(const std::string& filename, Simulation& sim) {
-    std::ifstream file(filename);
+void FileManager::loadRoads(const string& filename, Simulation& sim) {
+    ifstream file(filename);
     if (!file.is_open()) {
-        throw std::runtime_error("Cannot open file: " + filename);
+        throw runtime_error("Cannot open file: " + filename);
     }
 
-    std::string line;
-    while (std::getline(file, line)) {
+    string line;
+    while (getline(file, line)) {
         // Skip empty lines and comment lines starting with '#'
         if (line.empty() || line[0] == '#') {
             continue;
         }
 
-        std::istringstream iss(line);
-        std::string id, from, to;
+        istringstream iss(line);
+        string id, from, to;
         double length, speedLimit;
         int blocked;
 
         if (!(iss >> id >> from >> to >> length >> speedLimit >> blocked)) {
-            std::cerr << "Warning: skipping malformed road line: " << line << "\n";
+            cerr << "Warning: skipping malformed road line: " << line << "\n";
             continue;
         }
 
@@ -39,49 +40,49 @@ void FileManager::loadRoads(const std::string& filename, Simulation& sim) {
     }
 
     // Create one traffic light per intersection
-    std::unordered_map<std::string, Intersection>& intersections = sim.getCityMap().getAllIntersections();
-    for (std::pair<const std::string, Intersection>& entry : intersections) {
+    unordered_map<string, Intersection>& intersections = sim.getCityMap().getAllIntersections();
+    for (pair<const string, Intersection>& entry : intersections) {
         TrafficLight tl(entry.first, 10, 2, 8);
         sim.addTrafficLight(entry.first, tl);
     }
 }
 
-void FileManager::loadVehicles(const std::string& filename, Simulation& sim) {
-    std::ifstream file(filename);
+void FileManager::loadVehicles(const string& filename, Simulation& sim) {
+    ifstream file(filename);
     if (!file.is_open()) {
-        throw std::runtime_error("Cannot open file: " + filename);
+        throw runtime_error("Cannot open file: " + filename);
     }
 
-    std::string line;
-    while (std::getline(file, line)) {
+    string line;
+    while (getline(file, line)) {
         if (line.empty() || line[0] == '#') {
             continue;
         }
 
-        std::istringstream iss(line);
-        std::string id, type, start, dest;
+        istringstream iss(line);
+        string id, type, start, dest;
 
         if (!(iss >> id >> type >> start >> dest)) {
-            std::cerr << "Warning: skipping malformed vehicle line: " << line << "\n";
+            cerr << "Warning: skipping malformed vehicle line: " << line << "\n";
             continue;
         }
 
-        std::shared_ptr<Vehicle> v;
+        shared_ptr<Vehicle> v;
         if (type == "Car") {
-            v = std::make_shared<Car>(id);
+            v = make_shared<Car>(id);
         } else if (type == "Bus") {
-            v = std::make_shared<Bus>(id);
+            v = make_shared<Bus>(id);
         } else if (type == "Truck") {
-            v = std::make_shared<Truck>(id);
+            v = make_shared<Truck>(id);
         } else if (type == "Emergency") {
-            v = std::make_shared<EmergencyVehicle>(id);
+            v = make_shared<EmergencyVehicle>(id);
         } else {
-            std::cerr << "Warning: unknown vehicle type '" << type << "' for " << id << "\n";
+            cerr << "Warning: unknown vehicle type '" << type << "' for " << id << "\n";
             continue;
         }
 
-        // Store start and destination temporarily; full route planned in initialize()
-        std::vector<std::string> tempRoute;
+        // Store start and destination temporarily; full route is planned in initialize()
+        vector<string> tempRoute;
         tempRoute.push_back(start);
         tempRoute.push_back(dest);
         v->setRoute(tempRoute);
@@ -90,24 +91,24 @@ void FileManager::loadVehicles(const std::string& filename, Simulation& sim) {
     }
 }
 
-void FileManager::loadAccidents(const std::string& filename, Simulation& sim) {
-    std::ifstream file(filename);
+void FileManager::loadAccidents(const string& filename, Simulation& sim) {
+    ifstream file(filename);
     if (!file.is_open()) {
-        throw std::runtime_error("Cannot open file: " + filename);
+        throw runtime_error("Cannot open file: " + filename);
     }
 
-    std::string line;
-    while (std::getline(file, line)) {
+    string line;
+    while (getline(file, line)) {
         if (line.empty() || line[0] == '#') {
             continue;
         }
 
-        std::istringstream iss(line);
-        std::string id, roadId, severityStr;
+        istringstream iss(line);
+        string id, roadId, severityStr;
         int startTime, duration;
 
         if (!(iss >> id >> roadId >> severityStr >> startTime >> duration)) {
-            std::cerr << "Warning: skipping malformed accident line: " << line << "\n";
+            cerr << "Warning: skipping malformed accident line: " << line << "\n";
             continue;
         }
 
@@ -119,23 +120,23 @@ void FileManager::loadAccidents(const std::string& filename, Simulation& sim) {
         } else if (severityStr == "High") {
             sev = AccidentSeverity::HIGH;
         } else {
-            std::cerr << "Warning: unknown severity '" << severityStr << "'\n";
+            cerr << "Warning: unknown severity '" << severityStr << "'\n";
             continue;
         }
 
-        // unique_ptr is used because AccidentManager takes ownership
-        std::unique_ptr<TrafficAccident> accident =
-            std::make_unique<TrafficAccident>(id, roadId, sev, startTime, duration);
+        // unique_ptr is used because AccidentManager takes ownership of the accident object
+        unique_ptr<TrafficAccident> accident =
+            make_unique<TrafficAccident>(id, roadId, sev, startTime, duration);
 
-        sim.getAccidentManager().addAccident(std::move(accident));
+        sim.getAccidentManager().addAccident(move(accident));
     }
 }
 
-void FileManager::saveResults(const std::string& filename, const Simulation& sim) {
-    std::ofstream file(filename);
+void FileManager::saveResults(const string& filename, const Simulation& sim) {
+    ofstream file(filename);
     if (!file.is_open()) {
-        throw std::runtime_error("Cannot open output file: " + filename);
+        throw runtime_error("Cannot open output file: " + filename);
     }
     sim.printStatus(file);
-    std::cout << "Results saved to " << filename << "\n";
+    cout << "Results saved to " << filename << "\n";
 }

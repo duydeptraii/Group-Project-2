@@ -1,10 +1,11 @@
 #pragma once
 #include <string>
+using namespace std;
 
 struct RoadSegment {
-    std::string id;
-    std::string fromId;
-    std::string toId;
+    string id;
+    string fromId;
+    string toId;
     double length;
     double speedLimit;
     bool blocked;
@@ -12,7 +13,7 @@ struct RoadSegment {
     int vehicleCount;
 
     RoadSegment();
-    RoadSegment(const std::string& id, const std::string& from, const std::string& to,
+    RoadSegment(const string& id, const string& from, const string& to,
                 double length, double speedLimit, bool blocked);
 
     bool isCongested() const { return vehicleCount >= 3; }

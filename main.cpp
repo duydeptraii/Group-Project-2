@@ -1,29 +1,30 @@
 #include "include/Simulation.hpp"
 #include <iostream>
 #include <stdexcept>
+using namespace std;
 
 int main() {
     try {
         Simulation sim;
 
-        std::cout << "=== Smart City Traffic Simulation ===\n\n";
-        std::cout << "Loading city data...\n";
+        cout << "=== Smart City Traffic Simulation ===\n\n";
+        cout << "Loading city data...\n";
         sim.loadFromFiles("data/roads.txt", "data/vehicles.txt", "data/accidents.txt");
 
-        std::cout << "Initializing vehicle routes...\n";
+        cout << "Initializing vehicle routes...\n";
         sim.initialize();
 
         int steps = 0;
-        std::cout << "Enter number of simulation steps (e.g. 20): ";
-        std::cin >> steps;
+        cout << "Enter number of simulation steps (e.g. 20): ";
+        cin >> steps;
         if (steps <= 0) steps = 20;
 
-        std::cout << "\nRunning simulation for " << steps << " steps...\n";
+        cout << "\nRunning simulation for " << steps << " steps...\n";
         sim.run(steps);
 
-        std::cout << "\nSimulation complete.\n";
-    } catch (const std::exception& e) {
-        std::cerr << "Fatal error: " << e.what() << "\n";
+        cout << "\nSimulation complete.\n";
+    } catch (const exception& e) {
+        cerr << "Fatal error: " << e.what() << "\n";
         return 1;
     }
     return 0;

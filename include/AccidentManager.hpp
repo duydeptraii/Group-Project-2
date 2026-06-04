@@ -4,18 +4,19 @@
 #include <memory>
 #include <string>
 #include <ostream>
+using namespace std;
 
 class CityMap;
 
 class AccidentManager {
 private:
-    std::vector<std::unique_ptr<TrafficAccident>> accidents;
+    vector<unique_ptr<TrafficAccident>> accidents;
 
 public:
-    void addAccident(std::unique_ptr<TrafficAccident> acc);
+    void addAccident(unique_ptr<TrafficAccident> acc);
     void update(int currentTime, CityMap& map);
 
-    const std::vector<std::unique_ptr<TrafficAccident>>& getAccidents() const { return accidents; }
-    std::vector<std::string> getBlockedRoads() const;
-    void printActiveAccidents(std::ostream& out) const;
+    const vector<unique_ptr<TrafficAccident>>& getAccidents() const { return accidents; }
+    vector<string> getBlockedRoads() const;
+    void printActiveAccidents(ostream& out) const;
 };

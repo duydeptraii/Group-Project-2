@@ -1,10 +1,11 @@
 #include "../include/AccidentManager.hpp"
 #include "../include/CityMap.hpp"
 #include <iostream>
+using namespace std;
 
-void AccidentManager::addAccident(std::unique_ptr<TrafficAccident> acc) {
+void AccidentManager::addAccident(unique_ptr<TrafficAccident> acc) {
     // unique_ptr cannot be copied, so std::move transfers ownership into the vector
-    accidents.push_back(std::move(acc));
+    accidents.push_back(move(acc));
 }
 
 void AccidentManager::update(int currentTime, CityMap& map) {
@@ -34,8 +35,8 @@ void AccidentManager::update(int currentTime, CityMap& map) {
     }
 }
 
-std::vector<std::string> AccidentManager::getBlockedRoads() const {
-    std::vector<std::string> blocked;
+vector<string> AccidentManager::getBlockedRoads() const {
+    vector<string> blocked;
     for (int i = 0; i < (int)accidents.size(); i++) {
         if (accidents[i]->doesBlockRoad()) {
             blocked.push_back(accidents[i]->getRoadId());
@@ -44,7 +45,7 @@ std::vector<std::string> AccidentManager::getBlockedRoads() const {
     return blocked;
 }
 
-void AccidentManager::printActiveAccidents(std::ostream& out) const {
+void AccidentManager::printActiveAccidents(ostream& out) const {
     bool hasActive = false;
     for (int i = 0; i < (int)accidents.size(); i++) {
         if (accidents[i]->isActive()) {

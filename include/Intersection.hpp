@@ -2,10 +2,11 @@
 #include <string>
 #include <queue>
 #include <vector>
+using namespace std;
 
 struct VehicleRef {
     int priority;
-    std::string vehicleId;
+    string vehicleId;
     bool operator<(const VehicleRef& other) const {
         return priority < other.priority;
     }
@@ -13,17 +14,17 @@ struct VehicleRef {
 
 class Intersection {
 private:
-    std::string id;
-    std::priority_queue<VehicleRef> waitingQueue;
+    string id;
+    priority_queue<VehicleRef> waitingQueue;
 
 public:
     Intersection() : id("") {}
-    explicit Intersection(const std::string& id);
+    explicit Intersection(const string& id);
 
-    const std::string& getId() const { return id; }
-    void addWaitingVehicle(const std::string& vehicleId, int priority);
-    std::string getNextVehicle();
+    const string& getId() const { return id; }
+    void addWaitingVehicle(const string& vehicleId, int priority);
+    string getNextVehicle();
     bool hasWaiting() const { return !waitingQueue.empty(); }
-    int getWaitingCount() const { return static_cast<int>(waitingQueue.size()); }
+    int getWaitingCount() const { return (int)waitingQueue.size(); }
     void clearQueue();
 };

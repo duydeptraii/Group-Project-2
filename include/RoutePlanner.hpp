@@ -1,17 +1,15 @@
 #pragma once
 #include <string>
 #include <vector>
+using namespace std;
 
 class CityMap;
 
 class RoutePlanner {
 public:
-    std::vector<std::string> findRoute(CityMap& map,
-                                       const std::string& start,
-                                       const std::string& dest);
+    vector<string> findRoute(CityMap& map, const string& start, const string& dest);
 
-    std::vector<std::string> rerouteAvoiding(CityMap& map,
-                                              const std::string& current,
-                                              const std::string& dest,
-                                              const std::vector<std::string>& avoidRoads);
+    vector<string> rerouteAvoiding(CityMap& map, const string& current,
+                                   const string& dest,
+                                   const vector<string>& avoidRoads);
 };
