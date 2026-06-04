@@ -1,0 +1,4 @@
+# AccidentID  RoadID  Severity(Low/Medium/High)  StartStep  DurationSteps
+A01           R5_BD   Medium                     3          10
+A02           R3_CD   High                       7          8
+A03           R2_BC   Low                        5          15

@@ -1,0 +1,6 @@
+# VehicleID  Type       Start  Destination
+C01          Car        I1     I3
+C02          Car        I2     I4
+B01          Bus        I1     I4
+T01          Truck      I3     I1
+E01          Emergency  I1     I4
