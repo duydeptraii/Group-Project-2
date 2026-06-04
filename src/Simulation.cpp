@@ -4,17 +4,34 @@
 #include <algorithm>
 #include <iomanip>
 
+// Comparison function used to sort vehicles: higher priority number goes first
+bool compareByPriority(const std::shared_ptr<Vehicle>& a, const std::shared_ptr<Vehicle>& b) {
+    return a->getPriority() > b->getPriority();
+}
+
+// ---------------------------------------------------------------
+// Constructor
+// ---------------------------------------------------------------
 Simulation::Simulation()
     : currentStep(0), completedCount(0), totalWaitTime(0.0) {}
 
+// ---------------------------------------------------------------
+// Add a vehicle to the simulation
+// ---------------------------------------------------------------
 void Simulation::addVehicle(std::shared_ptr<Vehicle> v) {
-    vehicles.push_back(std::move(v));
+    vehicles.push_back(v);
 }
 
+// ---------------------------------------------------------------
+// Register a traffic light for an intersection
+// ---------------------------------------------------------------
 void Simulation::addTrafficLight(const std::string& intersectionId, const TrafficLight& tl) {
-    trafficLights.emplace(intersectionId, tl);
+    trafficLights[intersectionId] = tl;
 }
 
+// ---------------------------------------------------------------
+// Load all data files
+// ---------------------------------------------------------------
 void Simulation::loadFromFiles(const std::string& roadsFile,
                                 const std::string& vehiclesFile,
                                 const std::string& accidentsFile) {
@@ -23,10 +40,15 @@ void Simulation::loadFromFiles(const std::string& roadsFile,
     FileManager::loadAccidents(accidentsFile, *this);
 }
 
+// ---------------------------------------------------------------
+// Plan routes for every vehicle before the simulation starts
+// ---------------------------------------------------------------
 void Simulation::initialize() {
-    for (auto& v : vehicles) {
-        const auto& partial = v->getRoute();
-        if (partial.size() < 2) {
+    for (int i = 0; i < (int)vehicles.size(); i++) {
+        std::shared_ptr<Vehicle>& v = vehicles[i];
+
+        const std::vector<std::string>& partial = v->getRoute();
+        if ((int)partial.size() < 2) {
             std::cerr << "Vehicle " << v->getId() << " has incomplete route data.\n";
             v->setStatus(VehicleStatus::WAITING);
             continue;
@@ -36,13 +58,12 @@ void Simulation::initialize() {
         std::string dest  = partial[1];
 
         if (!cityMap.intersectionExists(start) || !cityMap.intersectionExists(dest)) {
-            std::cerr << "Vehicle " << v->getId()
-                      << ": invalid start/dest intersection.\n";
+            std::cerr << "Vehicle " << v->getId() << ": invalid start/dest intersection.\n";
             v->setStatus(VehicleStatus::WAITING);
             continue;
         }
 
-        auto fullRoute = routePlanner.findRoute(cityMap, start, dest);
+        std::vector<std::string> fullRoute = routePlanner.findRoute(cityMap, start, dest);
         if (fullRoute.empty()) {
             std::cerr << "No route found for vehicle " << v->getId()
                       << " (" << start << " -> " << dest << ").\n";
@@ -53,13 +74,15 @@ void Simulation::initialize() {
         v->setRoute(fullRoute);
         v->setStatus(VehicleStatus::MOVING);
 
-        if (fullRoute.size() >= 2) {
-            for (const auto& roadId : cityMap.getOutgoingRoads(fullRoute[0])) {
-                const RoadSegment* road = cityMap.getRoad(roadId);
-                if (road && road->toId == fullRoute[1] && !road->blocked) {
-                    v->setCurrentRoad(roadId);
+        // Place vehicle on the first road of its route
+        if ((int)fullRoute.size() >= 2) {
+            const std::vector<std::string>& outgoing = cityMap.getOutgoingRoads(fullRoute[0]);
+            for (int j = 0; j < (int)outgoing.size(); j++) {
+                const RoadSegment* road = cityMap.getRoad(outgoing[j]);
+                if (road != nullptr && road->toId == fullRoute[1] && !road->blocked) {
+                    v->setCurrentRoad(outgoing[j]);
                     v->setPosition(0.0);
-                    cityMap.incrementVehicleCount(roadId);
+                    cityMap.incrementVehicleCount(outgoing[j]);
                     break;
                 }
             }
@@ -67,28 +90,49 @@ void Simulation::initialize() {
     }
 }
 
+// ---------------------------------------------------------------
+// Advance every traffic light by one step
+// ---------------------------------------------------------------
 void Simulation::updateTrafficLights() {
-    for (auto& pair : trafficLights)
-        pair.second.update();
+    for (std::pair<const std::string, TrafficLight>& entry : trafficLights) {
+        entry.second.update();
+    }
 }
 
+// ---------------------------------------------------------------
+// Refresh accident effects on roads
+// ---------------------------------------------------------------
 void Simulation::updateAccidents() {
     accidentManager.update(currentStep, cityMap);
 }
 
+// ---------------------------------------------------------------
+// Let waiting vehicles through if their intersection is now green
+// ---------------------------------------------------------------
 void Simulation::releaseWaitingVehicles() {
-    for (auto& pair : cityMap.getAllIntersections()) {
-        Intersection& inter = pair.second;
-        auto tlIt = trafficLights.find(pair.first);
-        bool green = (tlIt != trafficLights.end()) ? tlIt->second.isGreen() : true;
+    std::unordered_map<std::string, Intersection>& allIntersections = cityMap.getAllIntersections();
 
-        if (!green) continue;
+    for (std::pair<const std::string, Intersection>& entry : allIntersections) {
+        std::string interId    = entry.first;
+        Intersection& inter    = entry.second;
 
+        // Check whether the traffic light at this intersection is green
+        bool green = true; // default: pass through if there is no light
+        if (trafficLights.count(interId) > 0) {
+            green = trafficLights.at(interId).isGreen();
+        }
+
+        if (!green) {
+            continue;
+        }
+
+        // Release all vehicles waiting in the priority queue at this intersection
         while (inter.hasWaiting()) {
             std::string vId = inter.getNextVehicle();
-            for (auto& v : vehicles) {
-                if (v->getId() == vId && v->getStatus() == VehicleStatus::WAITING) {
-                    v->setStatus(VehicleStatus::MOVING);
+            for (int i = 0; i < (int)vehicles.size(); i++) {
+                if (vehicles[i]->getId() == vId &&
+                    vehicles[i]->getStatus() == VehicleStatus::WAITING) {
+                    vehicles[i]->setStatus(VehicleStatus::MOVING);
                     break;
                 }
             }
@@ -96,89 +140,124 @@ void Simulation::releaseWaitingVehicles() {
     }
 }
 
+// ---------------------------------------------------------------
+// Move a single vehicle forward by one simulation step
+// ---------------------------------------------------------------
 void Simulation::processVehicle(std::shared_ptr<Vehicle>& v) {
-    if (v->getStatus() == VehicleStatus::COMPLETED) return;
+    // Nothing to do for completed vehicles
+    if (v->getStatus() == VehicleStatus::COMPLETED) {
+        return;
+    }
 
+    // Waiting vehicles just accumulate wait time
     if (v->getStatus() == VehicleStatus::WAITING) {
         v->addWaitTime(1.0);
         totalWaitTime += 1.0;
         return;
     }
 
-    const std::string& roadId = v->getCurrentRoad();
+    std::string roadId = v->getCurrentRoad();
+
+    // No road means the vehicle just finished its journey
     if (roadId.empty()) {
         v->setStatus(VehicleStatus::COMPLETED);
-        ++completedCount;
+        completedCount++;
         return;
     }
 
     RoadSegment* road = cityMap.getRoad(roadId);
-    if (!road) {
+    if (road == nullptr) {
         v->setStatus(VehicleStatus::WAITING);
         return;
     }
 
+    // ---- Road is blocked: try to find a detour ----
     if (road->blocked) {
         std::string currentInter = v->getCurrentIntersection();
-        std::string dest = v->getDestination();
+        std::string dest         = v->getDestination();
 
         cityMap.decrementVehicleCount(roadId);
         v->setCurrentRoad("");
 
         if (!currentInter.empty() && currentInter != dest) {
-            auto newRoute = routePlanner.rerouteAvoiding(cityMap, currentInter, dest, {roadId});
+            std::vector<std::string> avoidList;
+            avoidList.push_back(roadId);
+
+            std::vector<std::string> newRoute =
+                routePlanner.rerouteAvoiding(cityMap, currentInter, dest, avoidList);
+
             if (!newRoute.empty()) {
                 v->setStatus(VehicleStatus::REROUTING);
                 v->setRoute(newRoute);
-                if (newRoute.size() >= 2) {
-                    for (const auto& rid : cityMap.getOutgoingRoads(newRoute[0])) {
-                        RoadSegment* r = cityMap.getRoad(rid);
-                        if (r && !r->blocked && r->toId == newRoute[1]) {
-                            v->setCurrentRoad(rid);
+
+                if ((int)newRoute.size() >= 2) {
+                    const std::vector<std::string>& outgoing = cityMap.getOutgoingRoads(newRoute[0]);
+                    for (int i = 0; i < (int)outgoing.size(); i++) {
+                        RoadSegment* r = cityMap.getRoad(outgoing[i]);
+                        if (r != nullptr && !r->blocked && r->toId == newRoute[1]) {
+                            v->setCurrentRoad(outgoing[i]);
                             v->setPosition(0.0);
-                            cityMap.incrementVehicleCount(rid);
+                            cityMap.incrementVehicleCount(outgoing[i]);
                             return;
                         }
                     }
                 }
             }
         }
+
+        // No detour available: vehicle must wait
         v->setStatus(VehicleStatus::WAITING);
         v->addWaitTime(1.0);
         totalWaitTime += 1.0;
         return;
     }
 
-    double effectiveSpeed = std::min(v->getSpeed(), road->currentSpeedLimit);
-    double distPerStep = effectiveSpeed * (1000.0 / 3600.0);
-    double newPos = v->getPosition() + distPerStep;
+    // ---- Move vehicle along the current road ----
+    double effectiveSpeed = v->getSpeed();
+    if (road->currentSpeedLimit < effectiveSpeed) {
+        effectiveSpeed = road->currentSpeedLimit;
+    }
 
+    // Convert km/h to m/s, then multiply by 1 second per step
+    double distPerStep = effectiveSpeed * (1000.0 / 3600.0);
+    double newPos      = v->getPosition() + distPerStep;
+
+    // Vehicle hasn't reached the end of this road yet
     if (newPos < road->length) {
         v->setPosition(newPos);
         v->setStatus(VehicleStatus::MOVING);
         return;
     }
 
+    // ---- Vehicle reached the end intersection of this road ----
     cityMap.decrementVehicleCount(roadId);
     v->advanceRouteIndex();
 
-    const auto& route = v->getRoute();
+    const std::vector<std::string>& route = v->getRoute();
     int idx = v->getRouteIndex();
 
-    if (idx >= static_cast<int>(route.size()) - 1) {
+    // Vehicle reached its destination
+    if (idx >= (int)route.size() - 1) {
         v->setStatus(VehicleStatus::COMPLETED);
         v->setCurrentRoad("");
-        ++completedCount;
+        completedCount++;
         return;
     }
 
+    // ---- Check the traffic light at this intersection ----
     std::string atIntersection = route[idx];
-    auto tlIt = trafficLights.find(atIntersection);
-    bool green = (tlIt == trafficLights.end()) || tlIt->second.isGreen();
+
+    bool green = true; // default: pass through if there is no light
+    if (trafficLights.count(atIntersection) > 0) {
+        green = trafficLights.at(atIntersection).isGreen();
+    }
 
     if (!green) {
+        // Red light: add vehicle to the intersection waiting queue
         Intersection* inter = cityMap.getIntersection(atIntersection);
-        if (inter) inter->addWaitingVehicle(v->getId(), v->getPriority());
+        if (inter != nullptr) {
+            inter->addWaitingVehicle(v->getId(), v->getPriority());
+        }
         v->setStatus(VehicleStatus::WAITING);
         v->setCurrentRoad("");
         v->addWaitTime(1.0);
@@ -186,114 +265,147 @@ void Simulation::processVehicle(std::shared_ptr<Vehicle>& v) {
         return;
     }
 
+    // ---- Move vehicle onto the next road ----
     std::string nextInter = route[idx + 1];
-    for (const auto& rid : cityMap.getOutgoingRoads(atIntersection)) {
-        RoadSegment* r = cityMap.getRoad(rid);
-        if (r && !r->blocked && r->toId == nextInter) {
-            v->setCurrentRoad(rid);
+    const std::vector<std::string>& outgoing = cityMap.getOutgoingRoads(atIntersection);
+
+    for (int i = 0; i < (int)outgoing.size(); i++) {
+        RoadSegment* r = cityMap.getRoad(outgoing[i]);
+        if (r != nullptr && !r->blocked && r->toId == nextInter) {
+            v->setCurrentRoad(outgoing[i]);
             v->setPosition(0.0);
             v->setStatus(VehicleStatus::MOVING);
-            cityMap.incrementVehicleCount(rid);
+            cityMap.incrementVehicleCount(outgoing[i]);
             return;
         }
     }
 
+    // Next road is blocked: try to reroute from current intersection
     std::string dest = v->getDestination();
-    auto newRoute = routePlanner.findRoute(cityMap, atIntersection, dest);
+    std::vector<std::string> newRoute = routePlanner.findRoute(cityMap, atIntersection, dest);
+
     if (!newRoute.empty()) {
         v->setRoute(newRoute);
         v->setStatus(VehicleStatus::REROUTING);
-        if (newRoute.size() >= 2) {
-            for (const auto& rid : cityMap.getOutgoingRoads(newRoute[0])) {
-                RoadSegment* r = cityMap.getRoad(rid);
-                if (r && !r->blocked && r->toId == newRoute[1]) {
-                    v->setCurrentRoad(rid);
+
+        if ((int)newRoute.size() >= 2) {
+            const std::vector<std::string>& newOut = cityMap.getOutgoingRoads(newRoute[0]);
+            for (int i = 0; i < (int)newOut.size(); i++) {
+                RoadSegment* r = cityMap.getRoad(newOut[i]);
+                if (r != nullptr && !r->blocked && r->toId == newRoute[1]) {
+                    v->setCurrentRoad(newOut[i]);
                     v->setPosition(0.0);
-                    cityMap.incrementVehicleCount(rid);
+                    cityMap.incrementVehicleCount(newOut[i]);
                     return;
                 }
             }
         }
     }
+
+    // No route available: vehicle waits
     v->setStatus(VehicleStatus::WAITING);
     v->addWaitTime(1.0);
     totalWaitTime += 1.0;
 }
 
+// ---------------------------------------------------------------
+// Run one full simulation step
+// ---------------------------------------------------------------
 void Simulation::runStep() {
-    ++currentStep;
+    currentStep++;
     updateTrafficLights();
     updateAccidents();
     releaseWaitingVehicles();
 
-    std::stable_sort(vehicles.begin(), vehicles.end(),
-        [](const std::shared_ptr<Vehicle>& a, const std::shared_ptr<Vehicle>& b) {
-            return a->getPriority() > b->getPriority();
-        });
+    // Higher-priority vehicles (e.g. emergency) move before others
+    std::sort(vehicles.begin(), vehicles.end(), compareByPriority);
 
-    for (auto& v : vehicles)
-        processVehicle(v);
+    for (int i = 0; i < (int)vehicles.size(); i++) {
+        processVehicle(vehicles[i]);
+    }
 }
 
+// ---------------------------------------------------------------
+// Run the simulation for a given number of steps
+// ---------------------------------------------------------------
 void Simulation::run(int steps) {
-    for (int i = 0; i < steps; ++i) {
+    for (int i = 0; i < steps; i++) {
         runStep();
         printStepStatus(std::cout);
     }
     saveResults("simulation_result.txt");
 }
 
+// ---------------------------------------------------------------
+// Print the current state of the simulation
+// ---------------------------------------------------------------
 void Simulation::printStepStatus(std::ostream& out) const {
     out << "\n--- Simulation Step " << currentStep << " ---\n\n";
 
-    for (const auto& pair : trafficLights)
-        pair.second.printStatus(out);
+    // Traffic lights
+    for (const std::pair<const std::string, TrafficLight>& entry : trafficLights) {
+        entry.second.printStatus(out);
+    }
     out << "\n";
 
+    // Accidents
     accidentManager.printActiveAccidents(out);
     out << "\n";
 
-    for (const auto& v : vehicles) {
-        if (v->getStatus() == VehicleStatus::COMPLETED) continue;
-        v->printStatus(out);
-        const std::string& rid = v->getCurrentRoad();
+    // Vehicles still in transit
+    for (int i = 0; i < (int)vehicles.size(); i++) {
+        if (vehicles[i]->getStatus() == VehicleStatus::COMPLETED) {
+            continue;
+        }
+
+        vehicles[i]->printStatus(out);
+
+        std::string rid = vehicles[i]->getCurrentRoad();
         if (!rid.empty()) {
             const RoadSegment* road = cityMap.getRoad(rid);
-            if (road) {
+            if (road != nullptr) {
                 out << "  Road Length: " << road->length << " m\n";
                 out << "  Position: " << std::fixed << std::setprecision(1)
-                    << v->getPosition() << "/" << road->length << " m\n";
+                    << vehicles[i]->getPosition() << "/" << road->length << " m\n";
             }
         }
-        if (v->getStatus() == VehicleStatus::REROUTING)
+
+        if (vehicles[i]->getStatus() == VehicleStatus::REROUTING) {
             out << "  Status: Re-routing because road is blocked\n";
+        }
         out << "\n";
     }
 
-    int total = static_cast<int>(vehicles.size());
-    double avgWait = (total > 0) ? (totalWaitTime / total) : 0.0;
+    // Summary statistics
+    int total = (int)vehicles.size();
+    double avgWait = 0.0;
+    if (total > 0) {
+        avgWait = totalWaitTime / total;
+    }
 
     out << "Completed Vehicles: " << completedCount << "\n";
     out << "Average Waiting Time: " << std::fixed << std::setprecision(1)
         << avgWait << " seconds\n";
 
-    auto blocked = cityMap.getBlockedRoads();
+    std::vector<std::string> blocked = cityMap.getBlockedRoads();
     out << "Blocked Roads: ";
-    if (blocked.empty()) { out << "None"; }
-    else {
-        for (size_t i = 0; i < blocked.size(); ++i) {
-            if (i) out << ", ";
+    if (blocked.empty()) {
+        out << "None";
+    } else {
+        for (int i = 0; i < (int)blocked.size(); i++) {
+            if (i > 0) out << ", ";
             out << blocked[i];
         }
     }
     out << "\n";
 
-    auto congested = cityMap.getCongestedRoads();
+    std::vector<std::string> congested = cityMap.getCongestedRoads();
     out << "Congested Roads: ";
-    if (congested.empty()) { out << "None"; }
-    else {
-        for (size_t i = 0; i < congested.size(); ++i) {
-            if (i) out << ", ";
+    if (congested.empty()) {
+        out << "None";
+    } else {
+        for (int i = 0; i < (int)congested.size(); i++) {
+            if (i > 0) out << ", ";
             out << congested[i];
         }
     }

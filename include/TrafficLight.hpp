@@ -14,6 +14,8 @@ private:
     int timer;
 
 public:
+    TrafficLight() : intersectionId(""), state(LightState::GREEN),
+                     greenDuration(10), yellowDuration(2), redDuration(8), timer(0) {}
     TrafficLight(const std::string& intersectionId, int green = 10, int yellow = 2, int red = 8);
 
     void update();

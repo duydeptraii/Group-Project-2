@@ -3,27 +3,31 @@
 #include <iostream>
 
 void AccidentManager::addAccident(std::unique_ptr<TrafficAccident> acc) {
+    // unique_ptr cannot be copied, so std::move transfers ownership into the vector
     accidents.push_back(std::move(acc));
 }
 
 void AccidentManager::update(int currentTime, CityMap& map) {
-    for (auto& acc : accidents) {
-        bool wasActive = acc->isActive();
+    for (int i = 0; i < (int)accidents.size(); i++) {
+        bool wasActive = accidents[i]->isActive();
 
-        acc->update(currentTime);
+        accidents[i]->update(currentTime);
 
-        RoadSegment* road = map.getRoad(acc->getRoadId());
-        if (!road) continue;
+        RoadSegment* road = map.getRoad(accidents[i]->getRoadId());
+        if (road == nullptr) {
+            continue;
+        }
 
-        if (acc->isActive()) {
-            if (acc->doesBlockRoad()) {
+        if (accidents[i]->isActive()) {
+            if (accidents[i]->doesBlockRoad()) {
                 road->blocked = true;
                 road->currentSpeedLimit = 0.0;
             } else {
                 road->blocked = false;
-                road->reduceSpeed(acc->getSpeedFactor());
+                road->reduceSpeed(accidents[i]->getSpeedFactor());
             }
         } else if (wasActive) {
+            // Accident just ended: restore road to normal
             road->blocked = false;
             road->restoreSpeed();
         }
@@ -32,9 +36,9 @@ void AccidentManager::update(int currentTime, CityMap& map) {
 
 std::vector<std::string> AccidentManager::getBlockedRoads() const {
     std::vector<std::string> blocked;
-    for (const auto& acc : accidents) {
-        if (acc->doesBlockRoad()) {
-            blocked.push_back(acc->getRoadId());
+    for (int i = 0; i < (int)accidents.size(); i++) {
+        if (accidents[i]->doesBlockRoad()) {
+            blocked.push_back(accidents[i]->getRoadId());
         }
     }
     return blocked;
@@ -42,13 +46,13 @@ std::vector<std::string> AccidentManager::getBlockedRoads() const {
 
 void AccidentManager::printActiveAccidents(std::ostream& out) const {
     bool hasActive = false;
-    for (const auto& acc : accidents) {
-        if (acc->isActive()) {
+    for (int i = 0; i < (int)accidents.size(); i++) {
+        if (accidents[i]->isActive()) {
             if (!hasActive) {
                 out << "Active Accidents:\n";
                 hasActive = true;
             }
-            acc->printStatus(out);
+            accidents[i]->printStatus(out);
         }
     }
     if (!hasActive) {

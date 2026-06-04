@@ -17,6 +17,7 @@ private:
     std::priority_queue<VehicleRef> waitingQueue;
 
 public:
+    Intersection() : id("") {}
     explicit Intersection(const std::string& id);
 
     const std::string& getId() const { return id; }
